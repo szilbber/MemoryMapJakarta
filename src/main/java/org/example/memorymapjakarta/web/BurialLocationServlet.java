@@ -58,6 +58,7 @@ public class BurialLocationServlet extends HttpServlet {
 
         List<BurialLocation> locations = burialLocationService.findAll();
         request.setAttribute("locations", locations);
+        request.setAttribute("persons", personService.findAll());
         request.getRequestDispatcher("/WEB-INF/burial-locations.jsp")
                 .forward(request, response);
     }
@@ -73,14 +74,20 @@ public class BurialLocationServlet extends HttpServlet {
 
         try {
             if ("create".equals(action)) {
-                createLocation(request);
+                if (!createLocation(request, response)) {
+                    return;
+                }
             } else if ("update".equals(action)) {
-                updateLocation(request);
+                if (!updateLocation(request, response)) {
+                    return;
+                }
             } else if ("delete".equals(action)) {
                 deleteLocation(request);
             } else {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "Неизвестное действие");
+                response.sendError(
+                        HttpServletResponse.SC_BAD_REQUEST,
+                        "Неизвестное действие"
+                );
                 return;
             }
 
@@ -93,13 +100,43 @@ public class BurialLocationServlet extends HttpServlet {
         }
     }
 
-    private void createLocation(HttpServletRequest request) {
+    private boolean createLocation(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
         BurialLocation location = new BurialLocation();
+
         fillLocation(location, request);
+
+        Long personId = location.getPerson().getId();
+
+        if (burialLocationService.existsForPerson(personId)) {
+            request.setAttribute(
+                    "error",
+                    "У этого человека уже есть место захоронения. " +
+                            "Выберите другого человека."
+            );
+
+            request.setAttribute("persons", personService.findAll());
+
+            request.getRequestDispatcher(
+                    "/WEB-INF/burial-location-edit.jsp"
+            ).forward(request, response);
+
+            return false;
+        }
+
         burialLocationService.create(location);
+
+        return true;
     }
 
-    private void updateLocation(HttpServletRequest request) {
+    private boolean updateLocation(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
         Long id = parseId(request.getParameter("id"));
 
         if (id == null) {
@@ -110,11 +147,36 @@ public class BurialLocationServlet extends HttpServlet {
 
         if (location == null) {
             throw new IllegalArgumentException(
-                    "Место захоронения не найдено");
+                    "Место захоронения не найдено"
+            );
         }
 
         fillLocation(location, request);
+
+        Long personId = location.getPerson().getId();
+
+        if (burialLocationService.existsForPersonExceptLocation(
+                personId, id)) {
+
+            request.setAttribute(
+                    "error",
+                    "У выбранного человека уже есть другое место захоронения. " +
+                            "Выберите другого человека."
+            );
+
+            request.setAttribute("location", location);
+            request.setAttribute("persons", personService.findAll());
+
+            request.getRequestDispatcher(
+                    "/WEB-INF/burial-location-edit.jsp"
+            ).forward(request, response);
+
+            return false;
+        }
+
         burialLocationService.update(location);
+
+        return true;
     }
 
     private void deleteLocation(HttpServletRequest request) {

@@ -44,5 +44,34 @@ public class BurialLocationService {
             entityManager.remove(location);
         }
     }
+
+    // проверяет, есть ли место у человека вообще
+    public boolean existsForPerson(Long personId) {
+        Long count = entityManager.createQuery(
+                        "SELECT COUNT(b) FROM BurialLocation b WHERE b.person.id = :personId",
+                        Long.class
+                )
+                .setParameter("personId", personId)
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    // проверяет, есть ли другое место у этого человека
+    public boolean existsForPersonExceptLocation(
+            Long personId, Long locationId) {
+
+        Long count = entityManager.createQuery(
+                        "SELECT COUNT(b) FROM BurialLocation b " +
+                                "WHERE b.person.id = :personId " +
+                                "AND b.id <> :locationId",
+                        Long.class
+                )
+                .setParameter("personId", personId)
+                .setParameter("locationId", locationId)
+                .getSingleResult();
+
+        return count > 0;
+    }
 }
 
